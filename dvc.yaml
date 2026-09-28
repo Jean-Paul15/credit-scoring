@@ -1,0 +1,191 @@
+stages:
+  generate:
+    cmd: python scripts/run_pipeline.py --generate
+    deps:
+      - scripts/run_pipeline.py
+      - src/credit_risk_graph/config.py
+      - src/credit_risk_graph/data
+      - src/credit_risk_graph/features
+    outs:
+      - data/raw
+      - data/clean
+      - data/enriched
+      - data/splits
+      - artifacts/metadata/dataset_summary.json:
+          cache: false
+
+  train_pd:
+    cmd: python -m credit_risk_graph.ifrs9.stages.train_pd
+    deps:
+      - data/splits
+      - artifacts/ifrs9/metrics/ebm_tuning.json
+      - src/credit_risk_graph/ifrs9
+      - src/credit_risk_graph/features
+    params:
+      - seed
+      - population
+      - pd_model
+    outs:
+      - artifacts/ifrs9/models/pd_ebm_champion.joblib
+      - artifacts/ifrs9/tables/pd_model_comparison.csv:
+          cache: false
+      - artifacts/ifrs9/tables/pd_ebm_importance.csv:
+          cache: false
+    metrics:
+      - artifacts/ifrs9/metrics/pd_model.json:
+          cache: false
+
+  calibrate:
+    cmd: python -m credit_risk_graph.ifrs9.stages.calibrate
+    deps:
+      - data/splits
+      - artifacts/ifrs9/models/pd_ebm_champion.joblib
+      - src/credit_risk_graph/ifrs9
+    params:
+      - population
+      - calibration
+      - rating
+    outs:
+      - artifacts/ifrs9/models/pd_calibration.joblib
+      - artifacts/ifrs9/tables/pd_calibration_metrics.csv:
+          cache: false
+      - artifacts/ifrs9/tables/pd_grade_table.csv:
+          cache: false
+    metrics:
+      - artifacts/ifrs9/metrics/pd_calibration.json:
+          cache: false
+
+  backtest:
+    cmd: python -m credit_risk_graph.ifrs9.stages.backtest
+    deps:
+      - data/splits
+      - artifacts/ifrs9/models/pd_ebm_champion.joblib
+      - artifacts/ifrs9/models/pd_calibration.joblib
+      - src/credit_risk_graph/ifrs9
+    params:
+      - population
+      - backtesting
+    outs:
+      - artifacts/ifrs9/tables/backtest_cohorts.parquet
+      - artifacts/ifrs9/tables/backtest_portfolio.csv:
+          cache: false
+      - artifacts/ifrs9/tables/backtest_by_grade.csv:
+          cache: false
+      - artifacts/ifrs9/tables/backtest_discrimination.csv:
+          cache: false
+    metrics:
+      - artifacts/ifrs9/metrics/backtest.json:
+          cache: false
+
+  lgd_ead:
+    cmd: python -m credit_risk_graph.ifrs9.stages.lgd_ead
+    deps:
+      - data/splits
+      - src/credit_risk_graph/ifrs9
+    params:
+      - seed
+      - population
+      - default_definition
+      - lgd
+      - ead
+    outs:
+      - artifacts/ifrs9/models/lgd_ebm.joblib
+      - artifacts/ifrs9/tables/ead_projection_error.csv:
+          cache: false
+    metrics:
+      - artifacts/ifrs9/metrics/lgd_ead.json:
+          cache: false
+
+  ecl:
+    cmd: python -m credit_risk_graph.ifrs9.stages.ecl
+    deps:
+      - data/splits
+      - artifacts/ifrs9/models/pd_ebm_champion.joblib
+      - artifacts/ifrs9/models/pd_calibration.joblib
+      - artifacts/ifrs9/models/lgd_ebm.joblib
+      - artifacts/ifrs9/tables/backtest_cohorts.parquet
+      - src/credit_risk_graph/ifrs9
+    params:
+      - staging
+      - scenarios
+      - ecl
+      - ead
+      - lgd
+      - calibration
+    outs:
+      - artifacts/ifrs9/models/ecl_engine.joblib
+      - artifacts/ifrs9/tables/ecl_by_loan.parquet
+      - artifacts/ifrs9/tables/ecl_by_stage.csv:
+          cache: false
+      - artifacts/ifrs9/tables/ecl_by_scenario.csv:
+          cache: false
+      - artifacts/ifrs9/tables/ecl_vs_prudential.csv:
+          cache: false
+      - artifacts/ifrs9/tables/ttc_pd_by_grade.csv:
+          cache: false
+    metrics:
+      - artifacts/ifrs9/metrics/ecl.json:
+          cache: false
+
+  monitoring:
+    cmd: python -m credit_risk_graph.ifrs9.stages.monitoring
+    deps:
+      - data/splits
+      - artifacts/ifrs9/models/pd_ebm_champion.joblib
+      - artifacts/ifrs9/models/pd_calibration.joblib
+      - src/credit_risk_graph/ifrs9
+      - src/credit_risk_graph/monitoring
+    params:
+      - population
+      - monitoring
+    outs:
+      - artifacts/ifrs9/tables/psi_features.csv:
+          cache: false
+      - artifacts/ifrs9/tables/psi_score_monthly.csv:
+          cache: false
+    metrics:
+      - artifacts/ifrs9/metrics/monitoring.json:
+          cache: false
+
+  tune_ebm:
+    cmd: python -m credit_risk_graph.ifrs9.stages.tune_ebm
+    deps:
+      - data/splits
+      - src/credit_risk_graph/ifrs9
+    params:
+      - seed
+      - population
+      - pd_model.tuning
+    outs:
+      - artifacts/ifrs9/tables/ebm_tuning.csv:
+          cache: false
+    metrics:
+      - artifacts/ifrs9/metrics/ebm_tuning.json:
+          cache: false
+
+  figures:
+    cmd: python -m credit_risk_graph.ifrs9.stages.figures
+    deps:
+      - artifacts/ifrs9/models/pd_ebm_champion.joblib
+      - artifacts/ifrs9/tables
+      - artifacts/ifrs9/metrics
+      - src/credit_risk_graph/ifrs9
+    outs:
+      - artifacts/ifrs9/figures:
+          cache: false
+      - artifacts/ifrs9/model_card.json:
+          cache: false
+      - artifacts/ifrs9/mlflow_runs.csv:
+          cache: false
+
+  notebook:
+    cmd: python scripts/build_ifrs9_notebook.py
+    deps:
+      - artifacts/ifrs9/models
+      - artifacts/ifrs9/tables
+      - artifacts/ifrs9/metrics
+      - scripts/build_ifrs9_notebook.py
+      - src/credit_risk_graph/ifrs9
+    outs:
+      - notebooks/ifrs9_ecl_ebm.ipynb:
+          cache: false

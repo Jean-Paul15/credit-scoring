@@ -1,0 +1,9 @@
+apiVersion: 1
+
+providers:
+  - name: CreditRiskDashboards
+    folder: Credit Risk IFRS 9
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards
+

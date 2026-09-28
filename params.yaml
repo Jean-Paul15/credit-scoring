@@ -1,0 +1,108 @@
+# Paramètres du pipeline IFRS 9 — source unique, suivie par DVC et journalisée dans MLflow.
+# Toute valeur marquée « hypothèse » est un choix interne de démonstration, pas une exigence réglementaire.
+
+seed: 42
+
+population:
+  performing_dpd_max: 90        # les expositions déjà en défaut sortent du périmètre PD
+  label_horizon_months: 12
+  train_embargo_months: 12      # purge : les labels des derniers mois du train recouvrent la période de validation
+  max_train_rows: 250000        # sous-échantillonnage aléatoire du train (snapshots mensuels très autocorrélés)
+
+default_definition:
+  dpd_threshold: 90             # présomption de défaut (Bâle CRE36.68, IFRS 9 B5.5.37, Instruction BCEAO 026-11-2016)
+  utp_restructured_min_dpd: 60  # hypothèse : indicateur d'improbabilité de paiement (restructuration en retard)
+  cure_months: 3                # hypothèse : période de guérison
+
+pd_model:
+  profiles: [classic_tabular, behavioural_macro, behavioural_flows_macro]  # candidats au rôle de champion, du plus simple au plus riche
+  # Diagnostic uniquement : les variables de graphe sont calculées sur l'ensemble de la période d'apprentissage
+  # (information future pour les dates antérieures) ; non point-in-time, donc jamais éligibles.
+  diagnostic_profiles: [graph_enriched]
+  champion_requires: [macro_stress]   # IFRS 9 §5.5.17 : information prospective => variable macro obligatoire
+  # le profil retenu est le plus simple dont le Gini OOT est à moins de min_gini_gain_for_complexity du meilleur
+  min_gini_gain_for_complexity: 0.005
+  ebm:
+    max_bins: 128
+    interactions: 10
+    learning_rate: 0.03
+    outer_bags: 4
+    inner_bags: 0
+    max_rounds: 3000
+    early_stopping_rounds: 50
+    min_samples_leaf: 200
+    n_jobs: -2
+  # +1 : la PD ne peut que croître avec la variable ; -1 : décroître. Le signe est vérifié empiriquement avant l'ajustement.
+  # Recherche aléatoire (étape tune_ebm) : validation croisée TEMPORELLE à fenêtre croissante, jamais aléatoire (les instantanés
+  # d'un même prêt sont corrélés). La meilleure configuration (AUC moyenne des plis) est lue par l'étape train_pd.
+  tuning:
+    method: randomized_search
+    n_iter: 12
+    fit_rows: 60000
+    objective: auc
+    folds:
+      - {fit_until: "2017-12-01", validate_from: "2019-01-01", validate_until: "2019-12-01"}
+      - {fit_until: "2018-12-01", validate_from: "2020-01-01", validate_until: "2020-12-01"}
+    space:
+      learning_rate: {loguniform: [0.005, 0.05]}
+      reg_lambda: {loguniform: [0.1, 50.0]}
+      max_bins: [16, 32, 64, 128, 256]
+      min_samples_leaf: [50, 200, 500, 1000, 2000]
+      max_rounds: [200, 500, 1000, 3000]
+      interactions: [0, 3, 5, 10]
+      outer_bags: [4, 8]
+      smoothing_rounds: [0, 75, 200]
+  monotone_constraints:
+    current_dpd: 1
+    historical_dpd_max_6m: 1
+    debt_service_ratio: 1
+    collateral_coverage: -1
+
+calibration:
+  method: platt                 # platt | isotonic ; comparaison des deux dans le notebook
+  pd_floor: 0.0005              # plancher de PD retail hors revolving (Bâle CRE32.58), appliqué à la vue prudentielle
+
+rating:
+  n_grades: 10
+
+backtesting:
+  cohort_month: 1               # cohorte annuelle : PD au 1er janvier, défaut observé dans les 12 mois
+  green_min_pvalue: 0.05        # feux tricolores : vert si P(X>=d) >= 5 %  (95 % cumulés)
+  red_max_pvalue: 0.0001        # rouge si P(X>=d) < 0,01 % (99,99 % cumulés)
+  alpha: 0.05
+  asset_correlation: 0.05       # hypothèse : corrélation d'actifs du test binomial ajusté (Vasicek)
+  bootstrap_draws: 200
+
+lgd:
+  features_exclude: [base_lgd]  # base_lgd est une fonction déterministe de la garantie : on force l'apprentissage sur les moteurs bruts
+  floors:                       # planchers prudentiels retail (Bâle CRE32.58) — uniquement dans la vue prudentielle
+    Aucun: 0.30
+    Foncier: 0.05
+  downturn_quantile: 0.75       # LGD de ralentissement : moyenne conditionnelle aux trimestres de stress macro >= ce quantile
+
+ead:
+  ccf: 1.0                      # prêts à terme sans engagement hors bilan : pas de facteur de conversion
+
+staging:
+  stage2_dpd: 30                # filet de sécurité IFRS 9 §5.5.11
+  stage3_dpd: 90
+  sicr_relative_multiplier: 1.7 # hypothèse interne (existant du projet)
+  sicr_absolute_delta: 0.01     # hypothèse : hausse absolue minimale de PD 12 mois
+
+scenarios:
+  # hypothèses de démonstration : en production, scénarios et poids proviennent des prévisions macro validées par la banque
+  weights: {baseline: 0.5, adverse: 0.3, favourable: 0.2}
+  adverse_quantile: 0.90        # niveau de stress macro = quantile historique
+  favourable_quantile: 0.10
+  reversion_years: 3            # retour linéaire vers le niveau courant
+  horizon_years: 5
+
+ecl:
+  as_of: latest                 # date d'arrêté du portefeuille : dernier mois observé
+  max_horizon_months: 60
+
+monitoring:
+  psi_bins: 10
+  psi_stable_max: 0.10          # règle empirique de pratique (Lewis 1994), pas un seuil réglementaire
+  psi_alert_min: 0.25
+  reference_split: validation

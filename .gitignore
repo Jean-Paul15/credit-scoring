@@ -1,0 +1,66 @@
+# Environnements et caches Python
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+.coverage
+htmlcov/
+
+# Secrets et configuration locale
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.streamlit/secrets.toml
+.dvc/config.local
+
+# Données, modèles et sorties générés (reproductibles via `dvc repro`)
+/data/
+/artifacts/
+/mlruns/
+/notebooks/
+/output/
+/report/
+/tmp/
+.dvc/cache/
+.dvc/tmp/
+dvc.lock
+*.parquet
+*.joblib
+*.pkl
+*.db
+*.sqlite
+*.log
+logs/
+
+# Documents et archives
+*.pdf
+*.zip
+*.tar
+*.tar.gz
+*.7z
+*.docx
+*.pptx
+
+# Éditeurs, outils et système
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+.claude/
+.codex/
+.agents/
+.playwright-mcp/
+graphify-out/
+CLAUDE.md
+AGENTS.md
+.api-notes.md
