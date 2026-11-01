@@ -1,6 +1,24 @@
-# credit-scoring : provisionnement IFRS 9 expliqué terme à terme
-
-Un pipeline qui calcule la perte de crédit attendue (ECL) d'un portefeuille de prêts, avec une probabilité de défaut que l'on peut lire, contrôler et défendre, sans variable issue des tiers.
+<div align="center">
+  <h1>credit-scoring : provisionnement IFRS 9 expliqué terme à terme</h1>
+  <p><b>Un pipeline qui calcule la perte de crédit attendue (ECL) d'un portefeuille de prêts, avec une probabilité de défaut que l'on peut lire, contrôler et défendre, sans variable issue des tiers.</b></p>
+  <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"/>
+  <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI"/>
+  <img src="https://img.shields.io/badge/scikit--learn-F7931E?style=for-the-badge&logo=scikitlearn&logoColor=white" alt="scikit-learn"/>
+  <img src="https://img.shields.io/badge/DVC-945DD6?style=for-the-badge&logo=dvc&logoColor=white" alt="DVC"/>
+  <img src="https://img.shields.io/badge/MLflow-0194E2?style=for-the-badge&logo=mlflow&logoColor=white" alt="MLflow"/>
+  <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker"/>
+  <br/><br/>
+  <img src="https://img.shields.io/badge/Licence-Tous%20droits%20r%C3%A9serv%C3%A9s-lightgrey?style=flat-square" alt="Licence : tous droits réservés"/>
+  <img src="https://img.shields.io/badge/Python-3.12%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.12 ou plus"/>
+  <a href="https://github.com/Jean-Paul15/credit-scoring/actions/workflows/tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/Jean-Paul15/credit-scoring/tests.yml?style=flat-square&amp;label=Tests&amp;logo=githubactions&amp;logoColor=white" alt="Statut des tests"/></a>
+  <p>
+    <a href="#démarrer-en-cinq-minutes">Démarrer</a> ·
+    <a href="#comment-ça-marche">Architecture</a> ·
+    <a href="#stack-technique">Stack</a> ·
+    <a href="#structure-du-dépôt">Structure</a> ·
+    <a href="#tests">Tests</a>
+  </p>
+</div>
 
 ## Ce que ça apporte
 
@@ -59,17 +77,18 @@ Les étapes DVC dans `dvc.yaml` : `generate`, `tune_ebm`, `train_pd`, `calibrate
 
 **Chaque règle de calcul est une fonction testée.** Le staging (retard supérieur à 30 jours, restructuration, hausse significative du risque exigeant un seuil relatif ET un seuil absolu), la PD marginale, l'actualisation au taux d'intérêt effectif, la pondération des scénarios : tout est du code vectorisé avec son test. Les pondérations de scénarios qui ne somment pas à 1 lèvent une erreur.
 
-## Stack
+## Stack technique
 
-| Domaine | Outils |
-|---|---|
-| Langage | Python 3.12 ou plus |
-| Modélisation | interpret (EBM), scikit-learn, LightGBM, SciPy, NumPy, pandas |
-| Graphe | NetworkX |
-| Pipeline et suivi | DVC, MLflow |
-| API et supervision | FastAPI, Uvicorn, prometheus-client, Prometheus, Grafana |
-| Qualité | pytest, ruff, GitHub Actions |
-| Conteneurs | Docker, Docker Compose |
+| Domaine | Technologies | Rôle dans le projet |
+|---|---|---|
+| Langage | <img src="https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python"/> | Python 3.12 ou plus pour tout le code |
+| Données | <img src="https://img.shields.io/badge/pandas-150458?style=flat-square&logo=pandas&logoColor=white" alt="pandas"/> <img src="https://img.shields.io/badge/NumPy-013243?style=flat-square&logo=numpy&logoColor=white" alt="NumPy"/> <img src="https://img.shields.io/badge/SciPy-8CAAE6?style=flat-square&logo=scipy&logoColor=white" alt="SciPy"/> <img src="https://img.shields.io/badge/NetworkX-4B8BBE?style=flat-square" alt="NetworkX"/> | Génération synthétique, variables, calculs vectorisés, variables de graphe de diagnostic |
+| Modélisation | <img src="https://img.shields.io/badge/interpret%20(EBM)-6A5ACD?style=flat-square" alt="interpret (EBM)"/> <img src="https://img.shields.io/badge/scikit--learn-F7931E?style=flat-square&logo=scikitlearn&logoColor=white" alt="scikit-learn"/> <img src="https://img.shields.io/badge/LightGBM-02A04A?style=flat-square" alt="LightGBM"/> | EBM pour la PD et la LGD, LightGBM et régression logistique comme comparaisons |
+| Pipeline et suivi | <img src="https://img.shields.io/badge/DVC-945DD6?style=flat-square&logo=dvc&logoColor=white" alt="DVC"/> <img src="https://img.shields.io/badge/MLflow-0194E2?style=flat-square&logo=mlflow&logoColor=white" alt="MLflow"/> | Étapes reproductibles et paramètres versionnés, runs et métriques |
+| API | <img src="https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI"/> <img src="https://img.shields.io/badge/Uvicorn-499848?style=flat-square" alt="Uvicorn"/> <img src="https://img.shields.io/badge/Pydantic-E92063?style=flat-square&logo=pydantic&logoColor=white" alt="Pydantic"/> | Service de scoring `/score`, `/score_batch`, `/model_card`, `/metrics` |
+| Supervision | <img src="https://img.shields.io/badge/Prometheus-E6522C?style=flat-square&logo=prometheus&logoColor=white" alt="Prometheus"/> <img src="https://img.shields.io/badge/Grafana-F46800?style=flat-square&logo=grafana&logoColor=white" alt="Grafana"/> | Collecte des métriques de l'API, tableaux de bord |
+| Infrastructure | <img src="https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker"/> <img src="https://img.shields.io/badge/Docker%20Compose-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker Compose"/> | Image du pipeline et pile complète avec Docker Compose |
+| Qualité | <img src="https://img.shields.io/badge/pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white" alt="pytest"/> <img src="https://img.shields.io/badge/Ruff-D7FF64?style=flat-square&logo=ruff&logoColor=black" alt="Ruff"/> <img src="https://img.shields.io/badge/GitHub%20Actions-2088FF?style=flat-square&logo=githubactions&logoColor=white" alt="GitHub Actions"/> | Tests, lint, intégration continue |
 
 ## Structure du dépôt
 
@@ -87,6 +106,8 @@ docs/                 cartographie réglementaire
 docker/               configuration Prometheus et Grafana
 params.yaml, dvc.yaml paramètres et pipeline
 ```
+
+## Tests
 
 Les tests se lancent avec `pytest tests`, le lint avec `ruff check src tests scripts`. La CI GitHub Actions exécute les deux.
 
